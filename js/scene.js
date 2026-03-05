@@ -32,7 +32,7 @@ const fillLight = new THREE.DirectionalLight(0xd0e8ff, 0.35);
 fillLight.position.set(-5, 3, -5);
 scene.add(fillLight);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshLambertMaterial({ color: 0x7aad6a }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshLambertMaterial({ color: 0x8ab87a }));
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
@@ -45,6 +45,41 @@ const buildingGroup = new THREE.Group();
 const handlesGroup  = new THREE.Group();
 scene.add(buildingGroup);
 scene.add(handlesGroup);
+
+// ─── SKY DOME ──────────────────────────────────────────────────────────────────
+const skyDome = new THREE.Mesh(
+  new THREE.SphereGeometry(80, 32, 16),
+  new THREE.ShaderMaterial({
+    uniforms: {
+      uTop:     { value: new THREE.Color(0x0e6ba8) },
+      uHorizon: { value: new THREE.Color(0xc8e3f5) },
+    },
+    vertexShader: `
+      varying float vY;
+      void main() {
+        vY = normalize(position).y;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uTop;
+      uniform vec3 uHorizon;
+      varying float vY;
+      void main() {
+        float t = clamp((vY + 0.12) / 1.12, 0.0, 1.0);
+        gl_FragColor = vec4(mix(uHorizon, uTop, pow(t, 0.55)), 1.0);
+      }
+    `,
+    side: THREE.BackSide,
+    depthWrite: false,
+  })
+);
+scene.add(skyDome);
+scene.fog = new THREE.FogExp2(0xc8e3f5, 0.006);
+
+// ─── RESIZE HANDLE GROUP ───────────────────────────────────────────────────────
+const resizeHandleGroup = new THREE.Group();
+scene.add(resizeHandleGroup);
 
 // ─── MATERIALS ─────────────────────────────────────────────────────────────────
 
@@ -379,10 +414,6 @@ function buildRoof(w, d, h, hw, hd) {
     [hd+ov,-(hd+ov)].forEach((zPos,i)=>{const shape=new THREE.Shape();shape.moveTo(-span,0);shape.lineTo(0,rh);shape.lineTo(span,0);shape.lineTo(-span,0);const g=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:0.08,bevelEnabled:false}),wm2);g.position.set(0,roofY,zPos);g.rotation.y=i===0?0:Math.PI;g.castShadow=true;buildingGroup.add(g);});
     const vMat=new THREE.MeshLambertMaterial({color:0x2a2a2a});
     [-(hd+ov+0.01),hd+ov+0.01].forEach(zPos=>{[-1,1].forEach(side=>{const v=new THREE.Mesh(new THREE.BoxGeometry(slope+0.06,0.06,0.05),vMat);v.position.set(side*span/2,roofY+rh/2,zPos);v.rotation.z=-side*angle;buildingGroup.add(v);});});
-  } else if (state.roof === 'lean') {
-    const hE=0.85,lE=0.1,rise=hE-lE,spanD=w+ov*2,slope=Math.sqrt(spanD*spanD+rise*rise),angle=Math.atan2(rise,spanD);
-    const panel=new THREE.Mesh(new THREE.BoxGeometry(spanD,pT,slope),rMat); panel.position.set(0,roofY+(hE+lE)/2,0); panel.rotation.x=angle; panel.castShadow=true; buildingGroup.add(panel);
-    const eY=roofY+lE; fa(spanD+0.05,0.22,0.06,0,eY-0.11,-(hd+ov)); fa(0.06,0.22,d+ov*2,-(hw+ov),eY-0.11,0); fa(0.06,0.22,d+ov*2,hw+ov,eY-0.11,0);
   }
 }
 
@@ -413,6 +444,7 @@ function buildRoom() {
   }
 
   rebuildHandles();
+  rebuildResizeHandles();
 }
 
 // ─── HANDLES ───────────────────────────────────────────────────────────────────
@@ -439,6 +471,72 @@ function rebuildHandles() {
     handlesGroup.add(disc);
   });
   refreshHandleColors();
+}
+
+// ─── RESIZE HANDLES ───────────────────────────────────────────────────────────
+
+function makeResizeArrow(color) {
+  const mat = new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.9 });
+  const g = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.7, 8), mat);
+  shaft.position.y = 0.35;
+  g.add(shaft);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.28, 8), mat);
+  head.position.y = 0.84;
+  g.add(head);
+  // Back arrow for double-headed look
+  const shaft2 = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.7, 8), mat);
+  shaft2.position.y = -0.35;
+  g.add(shaft2);
+  const head2 = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.28, 8), mat);
+  head2.position.y = -0.84;
+  head2.rotation.z = Math.PI;
+  g.add(head2);
+  return g;
+}
+
+function rebuildResizeHandles() {
+  while (resizeHandleGroup.children.length) resizeHandleGroup.remove(resizeHandleGroup.children[0]);
+  const hw = state.width/2, hd = state.depth/2, h = state.height;
+  const mid = 0.18 + h * 0.55;
+
+  // Width handle — points along X, placed at right side
+  const wA = makeResizeArrow(0xf97316);
+  wA.rotation.z = -Math.PI / 2;
+  wA.position.set(hw + 0.65, mid, 0);
+  wA.userData = { isResizeHandle: true, dimension: 'width' };
+  resizeHandleGroup.add(wA);
+
+  // Depth handle — points along Z, placed at front
+  const dA = makeResizeArrow(0x0ea5e9);
+  dA.rotation.x = Math.PI / 2;
+  dA.position.set(0, mid, hd + 0.65);
+  dA.userData = { isResizeHandle: true, dimension: 'depth' };
+  resizeHandleGroup.add(dA);
+
+  // Height handle — points along Y, placed at top-right corner
+  const hA = makeResizeArrow(0x8b5cf6);
+  hA.position.set(hw + 0.3, 0.18 + h + 0.65, 0);
+  hA.userData = { isResizeHandle: true, dimension: 'height' };
+  resizeHandleGroup.add(hA);
+}
+
+function raycastResizeHandles(e) {
+  raycaster.setFromCamera(getMouseNDC(e), camera);
+  const hits = raycaster.intersectObjects(resizeHandleGroup.children, true);
+  if (!hits.length) return null;
+  let obj = hits[0].object;
+  while (obj && obj.parent && !obj.userData.isResizeHandle) obj = obj.parent;
+  return obj && obj.userData.isResizeHandle ? obj : null;
+}
+
+function syncDimensionUI() {
+  ['width','depth','height'].forEach(dim => {
+    const s = document.getElementById(dim + 'Slider');
+    const v = document.getElementById(dim + 'Val');
+    if (s) s.value = state[dim];
+    if (v) v.textContent = parseFloat(state[dim]).toFixed(1) + 'm';
+  });
 }
 
 // ─── RAYCASTING ────────────────────────────────────────────────────────────────
@@ -585,7 +683,9 @@ function showPlacementError(msg) {
 
 // ─── MOUSE EVENTS ──────────────────────────────────────────────────────────────
 
-let orbitActive=false, prevMouseX=0, prevMouseY=0;
+let orbitActive=false, panActive=false, prevMouseX=0, prevMouseY=0;
+let resizeDragState = null; // { dimension, lastX, lastY }
+let resizeHoverHandle = null;
 let orbitTheta=0.6, orbitPhi=0.5, orbitRadius=15;
 const orbitTarget = new THREE.Vector3(0, 1.5, 0);
 
@@ -601,7 +701,15 @@ function updateCamera() {
 canvas.addEventListener('mousedown', e => {
   e.preventDefault();
 
-  // 1. Hit a handle → drag or select
+  // 0. Resize handle → resize drag
+  const rHit = raycastResizeHandles(e);
+  if (rHit) {
+    resizeDragState = { dimension: rHit.userData.dimension, lastX: e.clientX, lastY: e.clientY };
+    canvas.style.cursor = rHit.userData.dimension === 'height' ? 'ns-resize' : 'ew-resize';
+    return;
+  }
+
+  // 1. Hit an opening handle → drag or select
   const hit = raycastHandles(e);
   if (hit) {
     const op = state.openings.find(o => o.id === hit.openingId);
@@ -620,19 +728,82 @@ canvas.addEventListener('mousedown', e => {
     return;
   }
 
-  // 3. Click empty space → deselect + orbit
+  // 3. Shift+drag → pan camera
+  if (e.shiftKey) {
+    panActive = true; prevMouseX = e.clientX; prevMouseY = e.clientY;
+    canvas.style.cursor = 'move';
+    return;
+  }
+
+  // 4. Click empty space → deselect + orbit
   selectedHandleId = null;
   refreshHandleColors();
   if (typeof renderSelectedOpening === 'function') renderSelectedOpening();
   orbitActive=true; prevMouseX=e.clientX; prevMouseY=e.clientY;
 });
 
+canvas.addEventListener('dblclick', e => {
+  if (!dragState && !resizeDragState) {
+    orbitTarget.set(0, 1.5, 0);
+    orbitTheta=0.6; orbitPhi=0.5; orbitRadius=15;
+    updateCamera();
+  }
+});
+
 window.addEventListener('mouseup', () => {
   orbitActive = false;
-  if (dragState) { dragState = null; canvas.style.cursor = activePaletteType ? 'crosshair' : (hoveredHandleId ? 'grab' : 'default'); }
+  panActive = false;
+  if (resizeDragState) {
+    resizeDragState = null;
+    canvas.style.cursor = activePaletteType ? 'crosshair' : (hoveredHandleId ? 'grab' : 'default');
+  }
+  if (dragState) {
+    dragState = null;
+    canvas.style.cursor = activePaletteType ? 'crosshair' : (hoveredHandleId ? 'grab' : 'default');
+  }
 });
 
 window.addEventListener('mousemove', e => {
+  // Resize dimension drag
+  if (resizeDragState) {
+    const dx = e.clientX - resizeDragState.lastX;
+    const dy = e.clientY - resizeDragState.lastY;
+    resizeDragState.lastX = e.clientX;
+    resizeDragState.lastY = e.clientY;
+    const speed = 0.014 * (orbitRadius / 14);
+    switch (resizeDragState.dimension) {
+      case 'width':
+        state.width  = Math.round(Math.max(2,   Math.min(10,  state.width  + dx * speed)) * 4) / 4;
+        break;
+      case 'depth':
+        state.depth  = Math.round(Math.max(2,   Math.min(8,   state.depth  - dy * speed)) * 4) / 4;
+        break;
+      case 'height':
+        state.height = Math.round(Math.max(2.2, Math.min(3.5, state.height - dy * speed)) * 10) / 10;
+        break;
+    }
+    buildRoom();
+    syncDimensionUI();
+    if (typeof updatePriceDisplay === 'function') updatePriceDisplay();
+    return;
+  }
+
+  // Pan camera (shift+drag)
+  if (panActive) {
+    const dx = e.clientX - prevMouseX;
+    const dy = e.clientY - prevMouseY;
+    prevMouseX = e.clientX; prevMouseY = e.clientY;
+    const right = new THREE.Vector3();
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    right.crossVectors(camDir, new THREE.Vector3(0,1,0)).normalize();
+    const sp = orbitRadius * 0.001;
+    orbitTarget.addScaledVector(right, -dx * sp);
+    orbitTarget.y += dy * sp;
+    updateCamera();
+    return;
+  }
+
   if (dragState) {
     const wh = raycastWall(e);
     if (!wh || wh.wallId !== dragState.wall) return;
@@ -658,14 +829,54 @@ window.addEventListener('mousemove', e => {
     updateCamera(); return;
   }
 
+  // Resize handle hover
+  if (!activePaletteType && !dragState) {
+    const rh = raycastResizeHandles(e);
+    if (rh !== resizeHoverHandle) {
+      if (resizeHoverHandle) resizeHoverHandle.children.forEach(c => { if (c.material) c.material.opacity = 0.9; });
+      resizeHoverHandle = rh;
+      if (resizeHoverHandle) {
+        resizeHoverHandle.children.forEach(c => { if (c.material) c.material.opacity = 1.0; });
+        const dim = resizeHoverHandle.userData.dimension;
+        canvas.style.cursor = dim === 'height' ? 'ns-resize' : 'ew-resize';
+        showResizeTooltip(dim, e);
+      } else {
+        hideResizeTooltip();
+      }
+    } else if (!rh) {
+      hideResizeTooltip();
+    }
+  }
+
   const hh = raycastHandles(e);
   const newId = hh ? hh.openingId : null;
   if (newId !== hoveredHandleId) {
     hoveredHandleId = newId;
     refreshHandleColors();
-    canvas.style.cursor = activePaletteType ? 'crosshair' : (hoveredHandleId ? 'grab' : 'default');
+    if (!resizeHoverHandle) {
+      canvas.style.cursor = activePaletteType ? 'crosshair' : (hoveredHandleId ? 'grab' : 'default');
+    }
   }
 });
+
+function showResizeTooltip(dim, e) {
+  let el = document.getElementById('resizeTooltip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'resizeTooltip';
+    el.style.cssText = 'position:fixed;background:rgba(0,0,0,0.75);color:#fff;font-size:12px;padding:5px 10px;border-radius:6px;pointer-events:none;z-index:50;font-family:DM Sans,sans-serif;white-space:nowrap;';
+    document.body.appendChild(el);
+  }
+  const labels = { width: '↔ Drag to resize width', depth: '↕ Drag to resize depth', height: '↑↓ Drag to resize height' };
+  el.textContent = labels[dim] || dim;
+  el.style.left = (e.clientX + 14) + 'px';
+  el.style.top  = (e.clientY - 10) + 'px';
+  el.style.display = 'block';
+}
+function hideResizeTooltip() {
+  const el = document.getElementById('resizeTooltip');
+  if (el) el.style.display = 'none';
+}
 
 canvas.addEventListener('contextmenu', e => { e.preventDefault(); const h=raycastHandles(e); if(h) deleteOpening(h.openingId); });
 

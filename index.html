@@ -20,20 +20,26 @@
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <div class="header-left">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileSidebar()" aria-label="Toggle options">☰</button>
     <h1>Garden Room Configurator</h1>
-    <span class="subtitle">Drag to rotate · Scroll to zoom</span>
+    <span class="subtitle">Design your perfect garden room</span>
   </div>
   <div class="header-right">
-    <button class="share-btn" id="shareBtn" onclick="shareDesign()" title="Copy shareable link">🔗 Share Design</button>
-    <div id="shareCopied" class="share-copied" style="display:none">✓ Link copied!</div>
+    <button class="share-btn" id="shareBtn" onclick="shareDesign()" title="Copy shareable link">🔗 Share</button>
+    <div id="shareCopied" class="share-copied" style="display:none">✓ Copied!</div>
     <div class="price-display" id="totalPrice">£0</div>
   </div>
 </header>
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
 
 <div class="main">
 
   <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span>Options</span>
+      <button class="sidebar-close" onclick="toggleMobileSidebar()">✕</button>
+    </div>
 
     <!-- Openings — moved to top so always visible without scrolling -->
     <div class="section" id="openingsSection">
@@ -165,10 +171,6 @@
         <button class="option-btn" onclick="selectOpt('roof','apex',this)">
           <span class="opt-icon">▲</span>Apex
           <div class="opt-price">+£1,400</div>
-        </button>
-        <button class="option-btn" onclick="selectOpt('roof','lean',this)">
-          <span class="opt-icon">◢</span>Lean-To
-          <div class="opt-price">+£800</div>
         </button>
       </div>
 
@@ -359,12 +361,12 @@
 
     <button class="quote-btn" onclick="openLeadModal()">📋 Generate Full Quote</button>
 
-  </div><!-- /sidebar -->
+  </div>
 
   <!-- ── 3D Viewport ────────────────────────────────────────────────────────── -->
   <div class="viewport">
     <canvas id="canvas"></canvas>
-    <div class="view-hint">Drag to rotate · Scroll to zoom</div>
+    <div class="view-hint">Drag to rotate · <kbd>Shift</kbd>+drag to pan · Scroll to zoom · Double-click to reset</div>
 
     <div class="specs-bar">
       <h3>Specifications</h3>
@@ -460,6 +462,14 @@
 <script src="js/leads.js"></script>
 <script src="js/quote.js"></script>
 <script>
+  function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobileOverlay');
+    const isOpen  = sidebar.classList.toggle('sidebar--open');
+    overlay.classList.toggle('mobile-overlay--visible', isOpen);
+    document.body.classList.toggle('sidebar-open', isOpen);
+  }
+
   // Restore from shared URL hash if present, then initialise
   if (tryLoadFromURL()) {
     syncSwatchesToState();
