@@ -26,15 +26,8 @@ function updatePriceDisplay() {
   document.getElementById('spec-found').textContent  = FOUNDATION[state.foundation]?.label ?? '—';
 }
 
-// ─── DIMENSION SLIDERS ─────────────────────────────────────────────────────────
-
-['width', 'depth', 'height'].forEach(dim => {
-  document.getElementById(dim + 'Slider').addEventListener('input', function () {
-    state[dim] = parseFloat(this.value);
-    document.getElementById(dim + 'Val').textContent = state[dim].toFixed(1) + 'm';
-    buildRoom(); updatePriceDisplay();
-  });
-});
+// ─── DIMENSION SLIDERS (replaced by 3D wall arrows) ─────────────────────────────
+// Sliders removed — dimensions are now controlled by dragging the coloured ground arrows.
 
 // ─── OPTION BUTTONS (structure, roof, cladding — NOT doors/windows) ────────────
 
@@ -44,6 +37,20 @@ function selectOpt(key, value, btn) {
   if (grid) grid.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   buildRoom(); updatePriceDisplay();
+}
+
+// ─── FLAT ROOF TILT ────────────────────────────────────────────────────────────
+
+function setRoofTilt(val) {
+  state.roofTilt = parseInt(val, 10);
+  const label = document.getElementById('roofTiltVal');
+  if (label) label.textContent = state.roofTilt + '°';
+  buildRoom(); updatePriceDisplay();
+}
+
+function showFlatTilt(visible) {
+  const sec = document.getElementById('flatTiltSection');
+  if (sec) sec.style.display = visible ? 'block' : 'none';
 }
 
 // ─── COLOUR SWATCHES ───────────────────────────────────────────────────────────
@@ -291,6 +298,7 @@ function encodeStateToHash() {
     foundation:   state.foundation,
     roof:         state.roof,
     roofFinish:   state.roofFinish,
+    roofTilt:    state.roofTilt ?? 0,
     cladding:     state.cladding,
     claddingTint: state.claddingTint,
     frameColour:  state.frameColour,
@@ -324,6 +332,7 @@ function decodeHashToState(hash) {
     state.foundation   = snap.foundation   ?? state.foundation;
     state.roof         = snap.roof         ?? state.roof;
     state.roofFinish   = snap.roofFinish   ?? state.roofFinish;
+    state.roofTilt     = snap.roofTilt     ?? state.roofTilt;
     state.cladding     = snap.cladding     ?? state.cladding;
     state.claddingTint = snap.claddingTint ?? state.claddingTint;
     state.frameColour  = snap.frameColour  ?? state.frameColour;

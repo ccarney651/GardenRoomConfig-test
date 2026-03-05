@@ -20,20 +20,26 @@
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <div class="header-left">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileSidebar()" aria-label="Toggle options">☰</button>
     <h1>Garden Room Configurator</h1>
-    <span class="subtitle">Drag to rotate · Scroll to zoom</span>
+    <span class="subtitle">Design your perfect garden room</span>
   </div>
   <div class="header-right">
-    <button class="share-btn" id="shareBtn" onclick="shareDesign()" title="Copy shareable link">🔗 Share Design</button>
-    <div id="shareCopied" class="share-copied" style="display:none">✓ Link copied!</div>
+    <button class="share-btn" id="shareBtn" onclick="shareDesign()" title="Copy shareable link">🔗 Share</button>
+    <div id="shareCopied" class="share-copied" style="display:none">✓ Copied!</div>
     <div class="price-display" id="totalPrice">£0</div>
   </div>
 </header>
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
 
 <div class="main">
 
   <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span>Options</span>
+      <button class="sidebar-close" onclick="toggleMobileSidebar()">✕</button>
+    </div>
 
     <!-- Openings — moved to top so always visible without scrolling -->
     <div class="section" id="openingsSection">
@@ -56,13 +62,13 @@
         <!-- Door type options -->
         <div id="doorTypeOptions" style="display:none">
           <div class="option-grid">
-            <button class="option-btn active" id="dtBtn-single"  onclick="setOpeningStyle('single')">
+            <button class="option-btn" id="dtBtn-single"  onclick="setOpeningStyle('single')">
               <span class="opt-icon">🚪</span>French Single<div class="opt-price">£850</div>
             </button>
             <button class="option-btn" id="dtBtn-double"  onclick="setOpeningStyle('double')">
               <span class="opt-icon">🚪🚪</span>French Double<div class="opt-price">£1,600</div>
             </button>
-            <button class="option-btn" id="dtBtn-bifold"  onclick="setOpeningStyle('bifold')">
+            <button class="option-btn active" id="dtBtn-bifold"  onclick="setOpeningStyle('bifold')">
               <span class="opt-icon">⬜</span>Bi-Fold<div class="opt-price">£3,500+</div>
             </button>
             <button class="option-btn" id="dtBtn-sliding" onclick="setOpeningStyle('sliding')">
@@ -84,10 +90,10 @@
         <!-- Window style options -->
         <div id="windowStyleOptions" style="display:none">
           <div class="option-grid">
-            <button class="option-btn active" id="wsBtn-tilt"  onclick="setOpeningStyle('tilt')">
+            <button class="option-btn" id="wsBtn-tilt"  onclick="setOpeningStyle('tilt')">
               <span class="opt-icon">🪟</span>Tilt &amp; Turn<div class="opt-price">Included</div>
             </button>
-            <button class="option-btn" id="wsBtn-long"  onclick="setOpeningStyle('long')">
+            <button class="option-btn active" id="wsBtn-long"  onclick="setOpeningStyle('long')">
               <span class="opt-icon">▬</span>Long Panel<div class="opt-price">+£200</div>
             </button>
             <button class="option-btn" id="wsBtn-vert"  onclick="setOpeningStyle('vert')">
@@ -112,25 +118,7 @@
       <div class="openings-list" id="openingsList"></div>
     </div>
 
-    <!-- Dimensions -->
-    <div class="section">
-      <div class="section-title">Dimensions</div>
-      <div class="dim-row">
-        <span class="dim-label">Width</span>
-        <input type="range" id="widthSlider" min="2" max="10" step="0.5" value="4">
-        <span class="dim-value" id="widthVal">4.0m</span>
-      </div>
-      <div class="dim-row">
-        <span class="dim-label">Depth</span>
-        <input type="range" id="depthSlider" min="2" max="8" step="0.5" value="3">
-        <span class="dim-value" id="depthVal">3.0m</span>
-      </div>
-      <div class="dim-row">
-        <span class="dim-label">Height</span>
-        <input type="range" id="heightSlider" min="2.2" max="3.5" step="0.1" value="2.5">
-        <span class="dim-value" id="heightVal">2.5m</span>
-      </div>
-    </div>
+
 
     <!-- Foundation -->
     <div class="section">
@@ -158,18 +146,25 @@
     <div class="section">
       <div class="section-title">Roof Style</div>
       <div class="option-grid">
-        <button class="option-btn active" onclick="selectOpt('roof','flat',this)">
+        <button class="option-btn" id="roofBtn-flat" onclick="selectOpt('roof','flat',this);showFlatTilt(true)">
           <span class="opt-icon">▬</span>Flat
           <div class="opt-price">Included</div>
         </button>
-        <button class="option-btn" onclick="selectOpt('roof','apex',this)">
+        <button class="option-btn active" id="roofBtn-apex" onclick="selectOpt('roof','apex',this);showFlatTilt(false)">
           <span class="opt-icon">▲</span>Apex
           <div class="opt-price">+£1,400</div>
         </button>
-        <button class="option-btn" onclick="selectOpt('roof','lean',this)">
-          <span class="opt-icon">◢</span>Lean-To
-          <div class="opt-price">+£800</div>
-        </button>
+      </div>
+
+      <!-- Flat roof tilt -->
+      <div id="flatTiltSection" style="display:none;margin-top:12px">
+        <div class="section-title" style="margin-bottom:6px">Roof Pitch</div>
+        <div class="dim-row">
+          <span class="dim-label" style="width:60px">Tilt</span>
+          <input type="range" id="roofTiltSlider" min="0" max="8" step="1" value="2"
+                 oninput="setRoofTilt(this.value)">
+          <span class="dim-value" id="roofTiltVal" style="width:36px">2°</span>
+        </div>
       </div>
 
       <!-- Roof Finish -->
@@ -359,12 +354,12 @@
 
     <button class="quote-btn" onclick="openLeadModal()">📋 Generate Full Quote</button>
 
-  </div><!-- /sidebar -->
+  </div>
 
   <!-- ── 3D Viewport ────────────────────────────────────────────────────────── -->
   <div class="viewport">
     <canvas id="canvas"></canvas>
-    <div class="view-hint">Drag to rotate · Scroll to zoom</div>
+    <div class="view-hint">Drag to orbit · <kbd>Shift</kbd>+drag to pan · Scroll to zoom · Drag arrows to resize</div>
 
     <div class="specs-bar">
       <h3>Specifications</h3>
@@ -460,10 +455,18 @@
 <script src="js/leads.js"></script>
 <script src="js/quote.js"></script>
 <script>
-  // Restore from shared URL hash if present, then initialise
-  if (tryLoadFromURL()) {
-    syncSwatchesToState();
+  function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobileOverlay');
+    const isOpen  = sidebar.classList.toggle('sidebar--open');
+    overlay.classList.toggle('mobile-overlay--visible', isOpen);
+    document.body.classList.toggle('sidebar-open', isOpen);
   }
+
+  // Restore from shared URL hash if present, then initialise
+  // Always sync UI state to match current state (covers default values & URL hash)
+  if (tryLoadFromURL()) { /* URL hash decoded into state above */ }
+  syncSwatchesToState();
   buildRoom();
   updatePriceDisplay();
   renderOpeningsList();
