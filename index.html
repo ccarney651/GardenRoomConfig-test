@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Garden Room Configurator</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Three.js + GLTFLoader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <h1>Garden Room Configurator</h1>
+    <span class="subtitle">Drag to rotate · Scroll to zoom</span>
+  </div>
+  <div class="header-right">
+    <button class="share-btn" id="shareBtn" onclick="shareDesign()" title="Copy shareable link">🔗 Share Design</button>
+    <div id="shareCopied" class="share-copied" style="display:none">✓ Link copied!</div>
+    <div class="price-display" id="totalPrice">£0</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <div class="sidebar">
+
+    <!-- Openings — moved to top so always visible without scrolling -->
+    <div class="section" id="openingsSection">
+      <div class="section-title">Openings</div>
+
+      <!-- Palette buttons -->
+      <div class="palette-grid">
+        <button class="palette-btn" id="palBtn-door"   onclick="activatePalette('door',   this)">
+          <span class="palette-icon">🚪</span><span>Add Door</span>
+        </button>
+        <button class="palette-btn" id="palBtn-window" onclick="activatePalette('window', this)">
+          <span class="palette-icon">🪟</span><span>Add Window</span>
+        </button>
+      </div>
+
+      <!-- Contextual type picker — shown when palette active OR opening selected -->
+      <div id="openingTypePicker" style="display:none">
+        <div class="type-picker-label" id="typePickerLabel">Choose door type:</div>
+
+        <!-- Door type options -->
+        <div id="doorTypeOptions" style="display:none">
+          <div class="option-grid">
+            <button class="option-btn active" id="dtBtn-single"  onclick="setOpeningStyle('single')">
+              <span class="opt-icon">🚪</span>French Single<div class="opt-price">£850</div>
+            </button>
+            <button class="option-btn" id="dtBtn-double"  onclick="setOpeningStyle('double')">
+              <span class="opt-icon">🚪🚪</span>French Double<div class="opt-price">£1,600</div>
+            </button>
+            <button class="option-btn" id="dtBtn-bifold"  onclick="setOpeningStyle('bifold')">
+              <span class="opt-icon">⬜</span>Bi-Fold<div class="opt-price">£3,500+</div>
+            </button>
+            <button class="option-btn" id="dtBtn-sliding" onclick="setOpeningStyle('sliding')">
+              <span class="opt-icon">↔️</span>Sliding/Patio<div class="opt-price">£2,800</div>
+            </button>
+          </div>
+          <div style="margin-top:8px">
+            <label class="helper-text" style="display:block;margin-bottom:4px">Material</label>
+            <select class="styled-select" id="doorMaterialPicker" onchange="setOpeningMaterial(this.value)">
+              <option value="aluminium">Aluminium (standard)</option>
+              <option value="pvc">PVC (+20%)</option>
+            </select>
+          </div>
+          <div class="info-box" id="bifoldNote" style="display:none">
+            Bi-fold doors carry a +70% uplift on the base price.
+          </div>
+        </div>
+
+        <!-- Window style options -->
+        <div id="windowStyleOptions" style="display:none">
+          <div class="option-grid">
+            <button class="option-btn active" id="wsBtn-tilt"  onclick="setOpeningStyle('tilt')">
+              <span class="opt-icon">🪟</span>Tilt &amp; Turn<div class="opt-price">Included</div>
+            </button>
+            <button class="option-btn" id="wsBtn-long"  onclick="setOpeningStyle('long')">
+              <span class="opt-icon">▬</span>Long Panel<div class="opt-price">+£200</div>
+            </button>
+            <button class="option-btn" id="wsBtn-vert"  onclick="setOpeningStyle('vert')">
+              <span class="opt-icon">▮</span>Narrow Vert<div class="opt-price">+£150</div>
+            </button>
+            <button class="option-btn" id="wsBtn-horiz" onclick="setOpeningStyle('horiz')">
+              <span class="opt-icon">▭</span>Narrow Horiz<div class="opt-price">+£150</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Placement hint -->
+      <p class="palette-hint" id="paletteHint" style="display:none">
+        Click any wall to place · Drag handles to move · Right-click to delete
+      </p>
+
+      <!-- Placement error -->
+      <p class="placement-error" id="placementError" style="display:none"></p>
+
+      <!-- List of placed openings -->
+      <div class="openings-list" id="openingsList"></div>
+    </div>
+
+    <!-- Dimensions -->
+    <div class="section">
+      <div class="section-title">Dimensions</div>
+      <div class="dim-row">
+        <span class="dim-label">Width</span>
+        <input type="range" id="widthSlider" min="2" max="10" step="0.5" value="4">
+        <span class="dim-value" id="widthVal">4.0m</span>
+      </div>
+      <div class="dim-row">
+        <span class="dim-label">Depth</span>
+        <input type="range" id="depthSlider" min="2" max="8" step="0.5" value="3">
+        <span class="dim-value" id="depthVal">3.0m</span>
+      </div>
+      <div class="dim-row">
+        <span class="dim-label">Height</span>
+        <input type="range" id="heightSlider" min="2.2" max="3.5" step="0.1" value="2.5">
+        <span class="dim-value" id="heightVal">2.5m</span>
+      </div>
+    </div>
+
+    <!-- Foundation -->
+    <div class="section">
+      <div class="section-title">Foundation</div>
+      <div class="option-grid">
+        <button class="option-btn active" onclick="selectOpt('foundation','concrete',this)">
+          <span class="opt-icon">🏗️</span>Concrete Base
+          <div class="opt-price">£1,800 (12m² inc.)</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('foundation','block',this)">
+          <span class="opt-icon">🧱</span>Block Base
+          <div class="opt-price">£550 (12m² inc.)</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('foundation','screws',this)">
+          <span class="opt-icon">🔩</span>Ground Screws
+          <div class="opt-price">£120/screw</div>
+        </button>
+      </div>
+      <div class="info-box" id="screwsNote" style="display:none">
+        Screw quantity is determined by building size and loading requirements.
+      </div>
+    </div>
+
+    <!-- Roof Style -->
+    <div class="section">
+      <div class="section-title">Roof Style</div>
+      <div class="option-grid">
+        <button class="option-btn active" onclick="selectOpt('roof','flat',this)">
+          <span class="opt-icon">▬</span>Flat
+          <div class="opt-price">Included</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('roof','apex',this)">
+          <span class="opt-icon">▲</span>Apex
+          <div class="opt-price">+£1,400</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('roof','lean',this)">
+          <span class="opt-icon">◢</span>Lean-To
+          <div class="opt-price">+£800</div>
+        </button>
+      </div>
+
+      <!-- Roof Finish -->
+      <div style="margin-top:12px">
+        <div class="section-title" style="margin-bottom:8px">Roof Finish</div>
+        <div class="option-grid" id="roofFinishGrid">
+          <button class="option-btn active" onclick="selectOpt('roofFinish','epdm',this)">
+            <span class="opt-icon">⬛</span>EPDM Black
+            <div class="opt-price">Included</div>
+          </button>
+          <button class="option-btn" onclick="selectOpt('roofFinish','shingle_grey',this)">
+            <span class="opt-icon">▦</span>Grey Shingle
+            <div class="opt-price">+£400</div>
+          </button>
+          <button class="option-btn" onclick="selectOpt('roofFinish','shingle_red',this)">
+            <span class="opt-icon">🟫</span>Red Shingle
+            <div class="opt-price">+£400</div>
+          </button>
+          <button class="option-btn" onclick="selectOpt('roofFinish','grass',this)">
+            <span class="opt-icon">🌿</span>Green Roof
+            <div class="opt-price">+£1,200</div>
+          </button>
+          <button class="option-btn" onclick="selectOpt('roofFinish','pebbles',this)">
+            <span class="opt-icon">⬜</span>Pebble
+            <div class="opt-price">+£350</div>
+          </button>
+          <button class="option-btn" onclick="selectOpt('roofFinish','cedar',this)">
+            <span class="opt-icon">🪵</span>Cedar Shingle
+            <div class="opt-price">+£600</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Roof Lantern -->
+      <div style="margin-top:10px">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-name">Roof Lantern</div>
+            <div class="toggle-price">From £2,200</div>
+          </div>
+          <button class="toggle" id="toggle-lantern" onclick="toggleExtra('lantern',this)"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cladding -->
+    <div class="section">
+      <div class="section-title">Cladding</div>
+      <div class="option-grid">
+        <button class="option-btn active" onclick="selectOpt('cladding','timber',this)">
+          <span class="opt-icon">🪵</span>Timber
+          <div class="opt-price">Included</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('cladding','composite',this)">
+          <span class="opt-icon">⬛</span>Composite
+          <div class="opt-price">+£700</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('cladding','render',this)">
+          <span class="opt-icon">◻</span>Render
+          <div class="opt-price">+£500</div>
+        </button>
+        <button class="option-btn" onclick="selectOpt('cladding','cedar',this)">
+          <span class="opt-icon">🌿</span>Cedar
+          <div class="opt-price">+£950</div>
+        </button>
+      </div>
+
+      <!-- Cladding Colour -->
+      <div style="margin-top:12px">
+        <div class="colour-row-label">Cladding Tint</div>
+        <div class="swatch-grid" id="claddingSwatches">
+          <div class="swatch active" data-group="cladding" style="background:#5c4033" onclick="selectCladdingTint('#5c4033',this)" title="Natural Oak"></div>
+          <div class="swatch"        data-group="cladding" style="background:#2c2c2c" onclick="selectCladdingTint('#2c2c2c',this)" title="Anthracite"></div>
+          <div class="swatch"        data-group="cladding" style="background:#d4c4a8" onclick="selectCladdingTint('#d4c4a8',this)" title="Cream"></div>
+          <div class="swatch"        data-group="cladding" style="background:#3d6b4f" onclick="selectCladdingTint('#3d6b4f',this)" title="Forest Green"></div>
+          <div class="swatch"        data-group="cladding" style="background:#7a8fa6" onclick="selectCladdingTint('#7a8fa6',this)" title="Slate Blue"></div>
+          <div class="swatch"        data-group="cladding" style="background:#c0b09a" onclick="selectCladdingTint('#c0b09a',this)" title="Sandstone"></div>
+          <div class="swatch"        data-group="cladding" style="background:#1a1a2e" onclick="selectCladdingTint('#1a1a2e',this)" title="Midnight"></div>
+          <div class="swatch"        data-group="cladding" style="background:#8b5e3c" onclick="selectCladdingTint('#8b5e3c',this)" title="Rustic Brown"></div>
+        </div>
+      </div>
+      <!-- Frame / Trim Colour -->
+      <div style="margin-top:10px">
+        <div class="colour-row-label">Frame &amp; Trim</div>
+        <div class="swatch-grid" id="frameSwatches">
+          <div class="swatch active" data-group="frame" style="background:#1a1a1a" onclick="selectFrameColour('#1a1a1a',this)" title="Anthracite Black"></div>
+          <div class="swatch"        data-group="frame" style="background:#ffffff;border-color:#ccc" onclick="selectFrameColour('#ffffff',this)" title="White"></div>
+          <div class="swatch"        data-group="frame" style="background:#7a6a5a" onclick="selectFrameColour('#7a6a5a',this)" title="Warm Grey"></div>
+          <div class="swatch"        data-group="frame" style="background:#3d6b4f" onclick="selectFrameColour('#3d6b4f',this)" title="Forest Green"></div>
+          <div class="swatch"        data-group="frame" style="background:#2c3e50" onclick="selectFrameColour('#2c3e50',this)" title="Slate Navy"></div>
+          <div class="swatch"        data-group="frame" style="background:#8b5e3c" onclick="selectFrameColour('#8b5e3c',this)" title="Bronze"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Structural Reinforcement -->
+    <div class="section">
+      <div class="section-title">Structural Reinforcement</div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-name">Reinforced Floor</div>
+          <div class="toggle-price" id="lbl-reinforceFloor">£65/m²</div>
+        </div>
+        <button class="toggle" id="toggle-reinforceFloor" onclick="toggleExtra('reinforceFloor',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-name">Reinforced Walls</div>
+          <div class="toggle-price" id="lbl-reinforceWalls">£75/m²</div>
+        </div>
+        <button class="toggle" id="toggle-reinforceWalls" onclick="toggleExtra('reinforceWalls',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-name">Reinforced Ceiling</div>
+          <div class="toggle-price" id="lbl-reinforceCeiling">£60/m²</div>
+        </div>
+        <button class="toggle" id="toggle-reinforceCeiling" onclick="toggleExtra('reinforceCeiling',this)"></button>
+      </div>
+    </div>
+
+    <!-- Electrical & Heating -->
+    <div class="section">
+      <div class="section-title">Electrical &amp; Heating</div>
+      <div class="num-row">
+        <span class="num-label">CAT6 Ethernet points</span>
+        <input class="num-input" type="number" id="ethernetPoints" min="0" max="20" value="0" oninput="updateNum('ethernetPoints',this)">
+        <span class="num-unit">pts</span>
+      </div>
+      <div class="helper-text">£250 per point</div>
+      <div class="toggle-row">
+        <div class="toggle-info"><div class="toggle-name">Stove Flue Kit</div><div class="toggle-price">£2,800</div></div>
+        <button class="toggle" id="toggle-stoveFlue" onclick="toggleExtra('stoveFlue',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info"><div class="toggle-name">Fire Boarding to Wall</div><div class="toggle-price">£140</div></div>
+        <button class="toggle" id="toggle-fireBoarding" onclick="toggleExtra('fireBoarding',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info"><div class="toggle-name">Electric Log Effect Fire</div><div class="toggle-price">£795</div></div>
+        <button class="toggle" id="toggle-logFire" onclick="toggleExtra('logFire',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info"><div class="toggle-name">Electric Radiator</div><div class="toggle-price">£249</div></div>
+        <button class="toggle" id="toggle-radiator" onclick="toggleExtra('radiator',this)"></button>
+      </div>
+    </div>
+
+    <!-- Lighting -->
+    <div class="section">
+      <div class="section-title">Lighting</div>
+      <div class="num-row">
+        <span class="num-label">Internal spotlights</span>
+        <input class="num-input" type="number" id="internalLights" min="0" max="40" value="0" oninput="updateNum('internalLights',this)">
+        <span class="num-unit">×</span>
+      </div>
+      <div class="helper-text">£65 per light</div>
+      <div class="num-row">
+        <span class="num-label">External downlights</span>
+        <input class="num-input" type="number" id="externalLights" min="0" max="20" value="0" oninput="updateNum('externalLights',this)">
+        <span class="num-unit">×</span>
+      </div>
+      <div class="helper-text">£129 per light</div>
+    </div>
+
+    <!-- Decking -->
+    <div class="section">
+      <div class="section-title">Decking</div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-name">Add Decking</div>
+          <div class="toggle-price">From £95/m²</div>
+        </div>
+        <button class="toggle" id="toggle-decking" onclick="toggleDecking(this)"></button>
+      </div>
+      <div id="deckingSection" style="display:none; margin-top:10px">
+        <div class="num-row">
+          <span class="num-label">Decking area</span>
+          <input class="num-input" type="number" id="deckingArea" min="1" max="200" value="10" oninput="updateNum('deckingArea',this)">
+          <span class="num-unit">m²</span>
+        </div>
+        <div class="helper-text">£95/m² — timber or composite</div>
+      </div>
+    </div>
+
+
+    <button class="quote-btn" onclick="openLeadModal()">📋 Generate Full Quote</button>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── 3D Viewport ────────────────────────────────────────────────────────── -->
+  <div class="viewport">
+    <canvas id="canvas"></canvas>
+    <div class="view-hint">Drag to rotate · Scroll to zoom</div>
+
+    <div class="specs-bar">
+      <h3>Specifications</h3>
+      <div class="spec-row"><span>Width</span>  <span id="spec-width">4.0m</span></div>
+      <div class="spec-row"><span>Depth</span>  <span id="spec-depth">3.0m</span></div>
+      <div class="spec-row"><span>Height</span> <span id="spec-height">2.5m</span></div>
+      <div class="spec-row"><span>Floor Area</span><span id="spec-area">12.0m²</span></div>
+      <div class="spec-row"><span>Roof</span>   <span id="spec-roof">Flat</span></div>
+      <div class="spec-row"><span>Foundation</span><span id="spec-found">Concrete</span></div>
+    </div>
+
+    <div class="viewport-controls">
+      <button class="ctrl-btn" onclick="setViewPreset('front')">Front</button>
+      <button class="ctrl-btn" onclick="setViewPreset('side')">Side</button>
+      <button class="ctrl-btn" onclick="setViewPreset('top')">Top</button>
+      <button class="ctrl-btn" onclick="setViewPreset('isometric')">Isometric</button>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ── Lead Capture Modal ─────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="leadModal" onclick="if(event.target===this) closeLeadModal()">
+  <div class="modal modal--narrow">
+    <div class="modal-header">
+      <h2>Get Your Quote</h2>
+      <div class="modal-subtitle">Enter your details and we'll prepare a full breakdown</div>
+    </div>
+    <div class="modal-body" style="padding: 20px 26px">
+
+      <div class="lead-error" id="leadError" style="display:none"></div>
+
+      <div class="form-field">
+        <label class="form-label" for="leadName">Full Name <span class="required">*</span></label>
+        <input class="form-input" type="text" id="leadName" placeholder="e.g. John Smith" autocomplete="name">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="leadEmail">Email Address <span class="required">*</span></label>
+        <input class="form-input" type="email" id="leadEmail" placeholder="john@example.com" autocomplete="email">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="leadPhone">Phone Number <span class="optional">(optional)</span></label>
+        <input class="form-input" type="tel" id="leadPhone" placeholder="e.g. 07700 900000" autocomplete="tel">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="leadNotes">Additional Notes <span class="optional">(optional)</span></label>
+        <textarea class="form-input form-textarea" id="leadNotes" placeholder="Any specific requirements, site details, or questions…" rows="3"></textarea>
+      </div>
+
+      <div class="form-privacy">
+        🔒 Your details are used only to prepare and send your quote.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn secondary" onclick="skipLeadForm()">Skip</button>
+      <button class="modal-btn primary"   onclick="submitLeadForm()">View My Quote →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quote Modal ────────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this) closeQuoteModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Quotation Summary</h2>
+      <div class="modal-subtitle" id="quoteSubtitle">Indicative pricing · subject to site survey and final specification</div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-total">
+      <div class="total-row">
+        <span class="total-label">Total Estimate (exc. VAT)</span>
+        <span class="total-price" id="quoteTotal">£0</span>
+      </div>
+      <div class="payment-steps">
+        <div class="payment-step"><strong>50%</strong> Deposit on order</div>
+        <div class="payment-step"><strong>40%</strong> At manufacture start</div>
+        <div class="payment-step"><strong>10%</strong> On completion</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn secondary" onclick="closeQuoteModal()">Close</button>
+      <button class="modal-btn secondary" onclick="window.print()">🖨️ Print / PDF</button>
+      <button class="modal-btn primary"   onclick="sendEnquiryEmail()">✉️ Send Enquiry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts (order matters) ──────────────────────────────────────────────── -->
+<script src="js/state.js"></script>
+<script src="js/pricing.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/leads.js"></script>
+<script src="js/quote.js"></script>
+<script>
+  // Restore from shared URL hash if present, then initialise
+  if (tryLoadFromURL()) {
+    syncSwatchesToState();
+  }
+  buildRoom();
+  updatePriceDisplay();
+  renderOpeningsList();
+  updatePaletteUI();
+</script>
+
+</body>
+</html>
